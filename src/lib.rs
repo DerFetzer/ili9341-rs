@@ -7,7 +7,7 @@ use embedded_hal::blocking::delay::DelayMs;
 use embedded_hal::digital::v2::OutputPin;
 
 use core::iter::once;
-use display_interface::DataFormat::{U16BEIter, U8Iter};
+use display_interface::DataFormat::{U16BEIter, U8Iter, U16BE};
 use display_interface::WriteOnlyDataCommand;
 
 pub mod spi;
@@ -132,6 +132,13 @@ where
             .map_err(|_| Error::Interface)
     }
 
+    fn write(&mut self, data: &mut [u16]) -> Result<(), Error<PinE>> {
+        self.command(Command::MemoryWrite, &[])?;
+        self.interface
+            .send_data(U16BE(data))
+            .map_err(|_| Error::Interface)
+    }
+
     fn write_iter<I: IntoIterator<Item = u16>>(&mut self, data: I) -> Result<(), Error<PinE>> {
         self.command(Command::MemoryWrite, &[])?;
         self.interface
@@ -247,6 +254,27 @@ where
         self.write_iter(data.iter().cloned())
     }
 
+    /// Draw a rectangle on the screen, represented by top-left corner (x0, y0)
+    /// and bottom-right corner (x1, y1).
+    ///
+    /// The border is included.
+    ///
+    /// This method accepts a raw buffer of words that will be copied to the screen
+    /// video memory.
+    ///
+    /// The expected format is rgb565.
+    pub fn draw_raw_non_iter(
+        &mut self,
+        x0: u16,
+        y0: u16,
+        x1: u16,
+        y1: u16,
+        data: &mut [u16],
+    ) -> Result<(), Error<PinE>> {
+        self.set_window(x0, y0, x1, y1)?;
+        self.write(data)
+    }
+
     /// Change the orientation of the screen
     pub fn set_orientation(&mut self, mode: Orientation) -> Result<(), Error<PinE>> {
         match mode {
@@ -271,6 +299,14 @@ where
                 self.command(Command::MemoryAccessControl, &[0x40 | 0x80 | 0x20 | 0x08])
             }
         }
+    }
+
+    pub fn sleep_in(&mut self) -> Result<(), Error<PinE>> {
+        self.command(Command::SleepIn, &[])
+    }
+
+    pub fn sleep_out(&mut self) -> Result<(), Error<PinE>> {
+        self.command(Command::SleepOut, &[])
     }
 
     /// Get the current screen width. It can change based on the current orientation
@@ -310,6 +346,7 @@ enum Command {
     SoftwareReset = 0x01,
     MemoryAccessControl = 0x36,
     PixelFormatSet = 0x3a,
+    SleepIn = 0x10,
     SleepOut = 0x11,
     DisplayOn = 0x29,
     ColumnAddressSet = 0x2a,
