@@ -91,36 +91,40 @@ where
             height: HEIGHT,
         };
 
+        ili9341.reset(delay)?;
+
+        Ok(ili9341)
+    }
+
+    pub fn reset<DELAY: DelayMs<u16>>(&mut self, delay: &mut DELAY) -> Result<(), Error<PinE>> {
         // Do hardware reset by holding reset low for at least 10us
-        ili9341.reset.set_low().map_err(Error::OutputPin)?;
+        self.reset.set_low().map_err(Error::OutputPin)?;
         delay.delay_ms(1);
         // Set high for normal operation
-        ili9341.reset.set_high().map_err(Error::OutputPin)?;
+        self.reset.set_high().map_err(Error::OutputPin)?;
 
         // Wait 5ms after reset before sending commands
         // and 120ms before sending Sleep Out
         delay.delay_ms(5);
 
         // Do software reset
-        ili9341.command(Command::SoftwareReset, &[])?;
+        self.command(Command::SoftwareReset, &[])?;
 
         // Wait 5ms after reset before sending commands
         // and 120ms before sending Sleep Out
         delay.delay_ms(120);
 
-        ili9341.set_orientation(Orientation::Portrait)?;
+        self.set_orientation(Orientation::Portrait)?;
 
         // Set pixel format to 16 bits per pixel
-        ili9341.command(Command::PixelFormatSet, &[0x55])?;
+        self.command(Command::PixelFormatSet, &[0x55])?;
 
-        ili9341.command(Command::SleepOut, &[])?;
+        self.command(Command::SleepOut, &[])?;
 
         // Wait 5ms after Sleep Out before sending commands
         delay.delay_ms(5);
 
-        ili9341.command(Command::DisplayOn, &[])?;
-
-        Ok(ili9341)
+        self.command(Command::DisplayOn, &[])
     }
 
     fn command(&mut self, cmd: Command, args: &[u8]) -> Result<(), Error<PinE>> {
